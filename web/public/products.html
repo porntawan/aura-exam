@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Page</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial; }
+body { background:#f4f6f9; padding:20px; }
+.layout { display:flex; gap:20px; }
+.products-section { flex:3; }
+.products { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:15px; }
+.card { background:#fff; padding:15px; border-radius:8px; box-shadow:0 3px 8px rgba(0,0,0,0.08); }
+.card button { width:100%; padding:8px; border:none; border-radius:6px; background:#4e73df; color:#fff; cursor:pointer; }
+.cart { flex:1; background:#fff; padding:15px; border-radius:8px; box-shadow:0 3px 8px rgba(0,0,0,0.08); }
+.cart-item { margin-bottom:10px; }
+.total { margin-top:15px; font-weight:bold; }
+.search-box {
+    margin-bottom: 20px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+</style>
+</head>
+
+<body>
+
+<h1>สินค้า</h1>
+
+<div class="layout">
+  <div class="products-section">
+
+    <div class="search-box">
+        <input data-testid="search-input" type="text" placeholder="ค้นหาสินค้า...">
+    </div>
+
+    <div class="products" data-testid="product-list"></div>
+
+  </div>
+
+  <div class="cart">
+    <h2>Cart</h2>
+    <div data-testid="cart-items"></div>
+    <div class="total" data-testid="cart-total">รวม: 0 บาท</div>
+  </div>
+</div>
+
+<script>
+const productList = document.querySelector('[data-testid="product-list"]');
+const cartItemsEl = document.querySelector('[data-testid="cart-items"]');
+const totalEl = document.querySelector('[data-testid="cart-total"]');
+const searchInput = document.querySelector('[data-testid="search-input"]');
+
+let cart = [];
+
+/* --- Fetch Products --- */
+async function fetchProducts(query = '') {
+  const res = await fetch(`/api/products?q=${query}`);
+  const data = await res.json();
+  return data;
+}
+
+async function renderProducts(query = '') {
+  productList.innerHTML = '';
+  const products = await fetchProducts(query);
+
+  products.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.setAttribute('data-testid', 'product-card');
+    div.innerHTML = `
+      <h3 data-testid="product-name">${p.name}</h3>
+      <p>${p.price} บาท</p>
+      <button data-testid="add-btn" data-id="${p.id}">Add to Cart</button>
+    `;
+    productList.appendChild(div);
+  });
+}
+
+function renderCart() {
+  cartItemsEl.innerHTML = '';
+  let total = 0;
+
+  cart.forEach(item => {
+    total += item.price * item.qty;
+
+    const div = document.createElement('div');
+    div.className = 'cart-item';
+    div.setAttribute('data-testid', 'cart-item');
+    div.innerHTML = `
+      <span>${item.name}</span>
+      x 
+      <span data-testid="cart-qty">${item.qty}</span>
+    `;
+    cartItemsEl.appendChild(div);
+  });
+
+  totalEl.textContent = `รวม: ${total} บาท`;
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.matches('[data-testid="add-btn"]')) {
+    const id = Number(e.target.dataset.id);
+    const existing = cart.find(c => c.id === id);
+
+    fetch('/api/products?q=')
+      .then(res => res.json())
+      .then(products => {
+        const product = products.find(p => p.id === id);
+
+        if (existing) {
+          existing.qty += 1;
+        } else {
+          cart.push({ ...product, qty: 1 });
+        }
+
+        renderCart();
+      });
+  }
+});
+
+/* --- search with debounce --- */
+let timer;
+searchInput.addEventListener('input', (e) => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    renderProducts(e.target.value);
+  }, 300);
+});
+
+renderProducts();
+</script>
+
+</body>
+</html>
